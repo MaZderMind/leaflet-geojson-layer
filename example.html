@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<title>Leaflet GeoJson Layer</title>
+		
+		<style type="text/css">
+			#themap {
+				width: 800px;
+				height: 600px;
+				border: 1px solid black;
+				background: #F1EFEE;
+			}
+		</style>
+
+		<!-- BEGIN: Header-Komponente der PWRK/Dr.Oetker Map-Api -->
+		<link rel="stylesheet" href="//libs.personalwerk.de/leaflet/0.4.4/dist/leaflet.css" />
+		<script src="//libs.personalwerk.de/leaflet/0.4.4/dist/leaflet.js"></script>
+		<script src="//libs.personalwerk.de/jquery/1.8.0/jquery-1.8.0.min.js"></script>
+		<script src="leaflet.geojsonlayer.js"></script>
+		<!-- END: Header-Komponente der PWRK/Dr.Oetker Map-Api -->
+	</head>
+	<body>
+		<h1>Leaflet GeoJson Layer</h1>
+
+		<!-- BEGIN: Body-Komponente der PWRK/Dr.Oetker Map-Api -->
+		<div id="themap"></div>
+		<script type="text/javascript">
+			var map = L.map('themap', {
+				center: [0, 0],
+				zoom: 0
+			});
+
+			map.addLayer(L.tileLayer('http://{s}.tiles.personalwerk.de/test/{z}/{x}/{y}.png', {
+				maxZoom: 5
+			}));
+
+			var myGeoJsonLayer = L.geoJsonTileLayer('http://{s}.datatile.personalwerk.de/countries/{z}/{x}/{y}.json', {
+				maxZoom: 8,
+				style: {
+					'fillColor': '#8A8680',
+					'fillOpacity': 1,
+					'color': '#F1EFEE',
+					'weight': 1,
+					'opacity': 1
+				}
+			}).addTo(map);
+		</script>
+		<!-- END: Body-Komponente der PWRK/Dr.Oetker Map-Api -->
+	</body>
+</html>
