@@ -18,6 +18,7 @@
 		<link rel="stylesheet" href="//libs.personalwerk.de/leaflet/0.4.4/dist/leaflet.css" />
 		<script src="//libs.personalwerk.de/leaflet/0.4.4/dist/leaflet.js"></script>
 		<script src="//libs.personalwerk.de/jquery/1.8.0/jquery-1.8.0.min.js"></script>
+		<script src="leaflet.permalink.js"></script>
 		<script src="leaflet.geojsonlayer.js"></script>
 		<!-- END: Header-Komponente der PWRK/Dr.Oetker Map-Api -->
 	</head>
@@ -31,6 +32,8 @@
 				center: [0, 0],
 				zoom: 0
 			});
+
+			map.addControl(new L.Control.Permalink());
 
 			map.addLayer(L.tileLayer('http://{s}.tiles.personalwerk.de/test/{z}/{x}/{y}.png', {
 				maxZoom: 5

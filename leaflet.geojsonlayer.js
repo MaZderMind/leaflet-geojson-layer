@@ -1,57 +1,16 @@
 // add tiled vector feature support
 L.Path.include({
 	_initPath: function() {
-		if(L.Path.SVG)
-		{
-			//this._container = this._createElement('g');
-			
-			this._path = this._createElement('path');
-			//this._container.appendChild(this._path);
-
+		if(L.Path.SVG) {
 			// tiled vector feature support
-			if(this._tileInfo) {
+			if(this._tilePoint) {
 				var map = this._map,
-					pathRoot = map._pathRoot,
-					tileInfo = this._tileInfo,
-					clipInfo = tileInfo.clipInfo,
-					tilePoint = tileInfo.tilePoint,
+					tilePoint = this._tilePoint,
 					tileId = map._zoom+'/'+tilePoint.x+'/'+tilePoint.y,
+					cpId = 'cp-'+map._zoom+'-'+tilePoint.x+'-'+tilePoint.y,
 					tileContainer = this._tileContainers[tileId];
 
 				if(!tileContainer) {
-					// find/create defs section
-					var defs = pathRoot.getElementsByTagName('defs');
-					if(defs.length > 0) {
-						defs = defs[0];
-					}
-					else {
-						defs = this._createElement('defs');
-						pathRoot.appendChild(defs);
-					}
-
-					// find/create clipPath
-					var
-						cpId = 'cp-'+map._zoom+'-'+tilePoint.x+'-'+tilePoint.y,
-						clipPath = document.getElementById(cpId), // TODO: uniqness of id
-						clipRect = null;
-
-					if(!clipPath) {
-						clipPath = this._createElement('clipPath');
-						clipPath.setAttribute('id', cpId);
-						defs.appendChild(clipPath);
-						
-						clipRect = this._createElement('rect');
-						clipPath.appendChild(clipRect);
-					}
-					else {
-						clipRect = clipPath.getElementsByTagName('rect')[0];
-					}
-
-					// TODO: fix overlap / thin-lines-bug
-					clipRect.setAttribute('x', clipInfo[0].x - 0.5);
-					clipRect.setAttribute('y', clipInfo[0].y - 0.5);
-					clipRect.setAttribute('width', clipInfo[1].x - clipInfo[0].x + 0.5);
-					clipRect.setAttribute('height', clipInfo[1].y - clipInfo[0].y + 0.5);
 					tileContainer = this._createElement('g');
 
 					//tileContainer.setAttribute('data-tile-x', tilePoint.x);
@@ -60,31 +19,47 @@ L.Path.include({
 					tileContainer.setAttribute('clip-path', 'url(#'+cpId+')');
 
 					this._tileContainers[tileId] = tileContainer;
-
-
 				}
 
-				tileContainer.appendChild(this._path);
 				this._container = tileContainer;
 			}
-		}
-		else
-		{
+			else {
+				this._container = this._createElement('g');
+			}
 
+			this._path = this._createElement('path');
+			this._container.appendChild(this._path);
+		}
+		else {
+			// TODO: VML
 		}
 	}
 });
 
 L.GeoJsonTileLayer = L.TileLayer.extend({
 	includes: {
-		_tileContainers: {}
+		_tileContainers: {},
+		_svgClipRects: {}
 	},
 
 	options: {
-		unloadInvisibleTiles: true
+		unloadInvisibleTiles: true,
+		smoothFactor: 0.0,
+		noClip: true
 	},
 
-	initialize: function(url, options) {
+	statics: {
+		_createElement: function (name) {
+			if(L.Path.SVG) {
+				return document.createElementNS(L.Path.SVG_NS, name);
+			}
+			else {
+				// TODO: svg
+			}
+		}
+	},
+
+	initialize: function (url, options) {
 		L.TileLayer.prototype.initialize.call(this, url, options);
 
 		this.on('tileunload', function(info) {
@@ -92,12 +67,18 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 				tileId = info.tile._tileId,
 				tileContainer = this._tileContainers[tileId];
 
+				//console.log(tileId, tileContainer);
 			// TODO: fade out
 			if(tileContainer) tileContainer.parentNode.removeChild(tileContainer);
 		});
 	},
 
-	_createTileProto: function() {
+	onAdd: function(map) {
+		map._initPathRoot();
+		L.TileLayer.prototype.onAdd.call(this, map);
+	},
+
+	_createTileProto: function () {
 		var el = this._tileEl = L.DomUtil.create('div', 'leaflet-tile');
 
 		var tileSize = this.options.tileSize;
@@ -132,19 +113,7 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 						style: layer.options.style
 					});
 
-				// get clip-px for tile point
-				var crs = map.options.crs,
-					tileSize = layer.options.tileSize,
-
-					nwPoint = tilePoint.multiplyBy(tileSize),
-					sePoint = nwPoint.add(new L.Point(tileSize, tileSize)),
-
-					nw = map.unproject(nwPoint, map._zoom),
-					se = map.unproject(sePoint, map._zoom),
-					clipInfo = [map.latLngToLayerPoint(nw), map.latLngToLayerPoint(se)];
-
-				//console.log(tilePoint+' @'+map._zoom+' -> '+nw+' '+se);
-				layer._propagateTileInfo(vectorLayer, {'tilePoint': tilePoint, 'clipInfo': clipInfo});
+				layer._propagateTileInfo(vectorLayer, tilePoint);
 
 				// TODO: fade in
 				vectorLayer.addTo(map);
@@ -156,16 +125,75 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 		});
 	},
 
-	_propagateTileInfo: function(vectorLayer, tileInfo) {
+	_addTile: function (tilePoint, container) {
+		L.TileLayer.prototype._addTile.call(this, tilePoint, container);
+		this._updateClipPath(tilePoint);
+	},
+
+	_updateClipPath: function(tilePoint) {
+		if(L.Path.SVG) {
+			var map = this._map,
+				tileSize = this.options.tileSize,
+				cpId = 'cp-'+map._zoom+'-'+tilePoint.x+'-'+tilePoint.y,
+				pathRoot = map._pathRoot,
+				clipRect = this._svgClipRects[cpId];
+
+			if(!clipRect) {
+				var defs = this._svgDefsSection;
+
+				// find/create defs section
+				if(!defs) {
+					defs = pathRoot.getElementsByTagName('defs');
+					if(defs.length > 0) {
+						defs = defs[0];
+					}
+					else {
+						defs = L.GeoJsonTileLayer._createElement('defs');
+						pathRoot.appendChild(defs);
+					}
+				}
+
+				clipPath = L.GeoJsonTileLayer._createElement('clipPath');
+				clipPath.setAttribute('id', cpId);
+				defs.appendChild(clipPath);
+				
+				clipRect = L.GeoJsonTileLayer._createElement('rect');
+				clipPath.appendChild(clipRect);
+				this._svgClipRects[cpId] = clipRect;
+			}
+
+			// get clip-px for tile point
+			var crs = map.options.crs,
+				nwPoint = tilePoint.multiplyBy(tileSize),
+				sePoint = nwPoint.add(new L.Point(tileSize, tileSize)),
+
+				nw = map.unproject(nwPoint),
+				se = map.unproject(sePoint),
+				tl = map.latLngToLayerPoint(nw),
+				br = map.latLngToLayerPoint(se);
+
+			// TODO: fix overlap / thin-lines-bug
+			var overlap = 0.5;
+			clipRect.setAttribute('x', tl.x - overlap);
+			clipRect.setAttribute('y', tl.y - overlap);
+			clipRect.setAttribute('width', br.x - tl.x + overlap+overlap);
+			clipRect.setAttribute('height', br.y - tl.y + overlap+overlap);
+		}
+		else {
+			// TODO: VML
+		}
+	},
+
+	_propagateTileInfo: function (vectorLayer, tilePoint) {
 		if(!vectorLayer._layers) {
-			vectorLayer._tileInfo = tileInfo;
+			vectorLayer._tilePoint = tilePoint;
 			vectorLayer._tileContainers = this._tileContainers;
 			return;
 		};
 
 		for(name in vectorLayer._layers) {
 			if(!vectorLayer._layers.hasOwnProperty(name)) return;
-			this._propagateTileInfo(vectorLayer._layers[name], tileInfo);
+			this._propagateTileInfo(vectorLayer._layers[name], tilePoint);
 		}
 	}
 });
