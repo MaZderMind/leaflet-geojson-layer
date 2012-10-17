@@ -39,7 +39,10 @@
 				maxZoom: 5
 			}));
 
-			var myGeoJsonLayer = L.geoJsonTileLayer('http://{s}.datatile.personalwerk.de/countries/{z}/{x}/{y}.json', {
+			var myGeoJsonLayer = L.geoJsonTileLayer('http://{s}.datatile.personalwerk.de/jsonp.php?dataset=countries&z={z}&x={x}&y={y}', {
+				cache: false,
+				dataType: 'jsonp',
+
 				maxZoom: 8,
 				style: {
 					'fillColor': '#8A8680',

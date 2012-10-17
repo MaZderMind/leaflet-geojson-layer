@@ -1,39 +1,49 @@
 // add tiled vector feature support
 L.Path.include({
-	_initPath: function() {
-		if(L.Path.SVG) {
-			// tiled vector feature support
-			if(this._tilePoint) {
-				var map = this._map,
-					tilePoint = this._tilePoint,
-					tileId = map._zoom+'/'+tilePoint.x+'/'+tilePoint.y,
-					cpId = 'cp-'+map._zoom+'-'+tilePoint.x+'-'+tilePoint.y,
-					tileContainer = this._tileContainers[tileId];
+	_initPath: L.Path.SVG ? function() {
 
-				if(!tileContainer) {
-					tileContainer = this._createElement('g');
-					this._tileContainers[tileId] = tileContainer;
+		// tiled vector feature support
+		if(this._tilePoint) {
+			var map = this._map,
+				tilePoint = this._tilePoint,
+				tileId = map._zoom+'/'+tilePoint.x+'/'+tilePoint.y,
+				cpId = 'cp-'+map._zoom+'-'+tilePoint.x+'-'+tilePoint.y,
+				tileContainer = this._tileContainers[tileId];
 
-					//tileContainer.setAttribute('data-tile-x', tilePoint.x);
-					//tileContainer.setAttribute('data-tile-y', tilePoint.y);
-					//tileContainer.setAttribute('data-tile-zoom', map._zoom);
-					tileContainer.setAttribute('clip-path', 'url(#'+cpId+')');
+			if(!tileContainer) {
+				tileContainer = this._createElement('g');
+				this._tileContainers[tileId] = tileContainer;
 
-				}
-
-				this._container = tileContainer;
-			}
-			else {
-				this._container = this._createElement('g');
+				//tileContainer.setAttribute('data-tile-x', tilePoint.x);
+				//tileContainer.setAttribute('data-tile-y', tilePoint.y);
+				//tileContainer.setAttribute('data-tile-zoom', map._zoom);
+				tileContainer.setAttribute('clip-path', 'url(#'+cpId+')');
 			}
 
-			this._path = this._createElement('path');
-			this._container.appendChild(this._path);
+			this._container = tileContainer;
 		}
 		else {
-			// TODO: VML
+			this._container = this._createElement('g');
 		}
-	}
+
+		this._path = this._createElement('path');
+		this._container.appendChild(this._path);
+
+	} : function() {
+
+		var container = this._container = this._createElement('shape');
+		L.DomUtil.addClass(container, 'leaflet-vml-shape');
+		if (this.options.clickable) {
+			L.DomUtil.addClass(container, 'leaflet-clickable');
+		}
+		container.coordsize = '1 1';
+		this._path = this._createElement('path');
+		container.appendChild(this._path);
+
+		console.log(container);
+		this._map._pathRoot.appendChild(container);
+
+	},
 });
 
 L.GeoJsonTileLayer = L.TileLayer.extend({
@@ -45,7 +55,10 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 	options: {
 		unloadInvisibleTiles: true,
 		smoothFactor: 0.0,
-		noClip: true
+		noClip: true,
+
+		cache: true,
+		dataType: 'json'
 	},
 
 	statics: {
@@ -54,7 +67,7 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 				return document.createElementNS(L.Path.SVG_NS, name);
 			}
 			else {
-				// TODO: vml
+				// TODO: VML
 			}
 		}
 	},
@@ -67,9 +80,14 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 				tileId = info.tile._tileId,
 				tileContainer = this._tileContainers[tileId];
 
-				//console.log(tileId, tileContainer);
 			// TODO: fade out
-			if(tileContainer) tileContainer.parentNode.removeChild(tileContainer);
+			try {
+				if(tileContainer && tileContainer.parentNode && tileContainer.parentNode.removeChild)
+					tileContainer.parentNode.removeChild(tileContainer);
+			}
+			catch(e) {
+				// nop
+			}
 		});
 	},
 
@@ -100,8 +118,8 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 
 		$.ajax({
 			url: this.getTileUrl(tilePoint),
-			dataType: 'json',
-			cache: true,
+			dataType: this.options.dataType,
+			cache: this.options.cache,
 
 			success: function(data) {
 				var
@@ -170,7 +188,6 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 				tl = map.latLngToLayerPoint(nw),
 				br = map.latLngToLayerPoint(se);
 
-			// TODO: fix overlap / thin-lines-bug
 			var overlap = 0.5;
 			clipRect.setAttribute('x', tl.x - overlap);
 			clipRect.setAttribute('y', tl.y - overlap);
