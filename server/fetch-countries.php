@@ -4,7 +4,7 @@ $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $minimalSize = 2080332000; // Minimalgröße der übernommenen Landflächen in km² * 100
-$zoom = range(1, 8); // Angeforderte Zoomlevel
+$zoom = range(0, 8);
 $dir = dirname(__FILE__).'/countries';
 
 include('fetch-countries-query.php');
