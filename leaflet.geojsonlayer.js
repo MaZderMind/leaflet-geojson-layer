@@ -54,7 +54,7 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 				return document.createElementNS(L.Path.SVG_NS, name);
 			}
 			else {
-				// TODO: svg
+				// TODO: vml
 			}
 		}
 	},
