@@ -98,8 +98,6 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 		tile._layer = this;
 		tile._tileId = this._map._zoom+'/'+tilePoint.x+'/'+tilePoint.y,
 
-		//if(!(tilePoint.x == 3 && tilePoint.y == 4)) return;
-
 		$.ajax({
 			url: this.getTileUrl(tilePoint),
 			dataType: 'json',
