@@ -12,13 +12,13 @@ L.Path.include({
 
 				if(!tileContainer) {
 					tileContainer = this._createElement('g');
+					this._tileContainers[tileId] = tileContainer;
 
 					//tileContainer.setAttribute('data-tile-x', tilePoint.x);
 					//tileContainer.setAttribute('data-tile-y', tilePoint.y);
 					//tileContainer.setAttribute('data-tile-zoom', map._zoom);
 					tileContainer.setAttribute('clip-path', 'url(#'+cpId+')');
 
-					this._tileContainers[tileId] = tileContainer;
 				}
 
 				this._container = tileContainer;
