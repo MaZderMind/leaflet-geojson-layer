@@ -37,12 +37,75 @@ L.Path.include({
 			L.DomUtil.addClass(container, 'leaflet-clickable');
 		}
 		container.coordsize = '1 1';
+		//container.setAttribute('style', 'position: relative;');
+
 		this._path = this._createElement('path');
 		container.appendChild(this._path);
 
-		console.log(container);
-		this._map._pathRoot.appendChild(container);
+		if(this._tilePoint) {
+			var map = this._map,
+				tilePoint = this._tilePoint,
+				tileId = map._zoom+'/'+tilePoint.x+'/'+tilePoint.y,
+				tileContainer = this._tileContainers[tileId];
 
+			if(!tileContainer) {
+				tileContainer = document.createElement('div');
+				this._tileContainers[tileId] = tileContainer;
+
+				tileContainer.setAttribute('data-tile-x', tilePoint.x);
+				tileContainer.setAttribute('data-tile-y', tilePoint.y);
+				tileContainer.setAttribute('data-tile-zoom', map._zoom);
+				//tileContainer.setAttribute('clip-path', 'url(#'+cpId+')');
+
+
+				// get clip-px for tile point
+				var nwPoint = tilePoint.multiplyBy(256),
+					sePoint = nwPoint.add(new L.Point(256, 256)),
+
+					nw = map.unproject(nwPoint),
+					se = map.unproject(sePoint),
+					tl = map.latLngToContainerPoint(nw),
+					br = map.latLngToContainerPoint(se);
+
+				//tileContainer.coordsize = '1,1';
+				tileContainer.style.position = 'absolute';
+
+				tileContainer.style.clip = 'rect('+tl.y+'px '+br.x+'px '+br.y+'px '+tl.x+'px)';
+
+				this._map._pathRoot.appendChild(tileContainer);
+			}
+
+			tileContainer.appendChild(container);
+		}
+		else {
+			this._map._pathRoot.appendChild(container);
+		}
+	},
+
+
+
+
+	onAdd: function (map) {
+		this._map = map;
+
+		if (!this._container) {
+			this._initElements();
+			this._initEvents();
+		}
+
+		this.projectLatlngs();
+		this._updatePath();
+
+/*
+		if (this._container) {
+			this._map._pathRoot.appendChild(this._container);
+		}
+*/
+
+		map.on({
+			'viewreset': this.projectLatlngs,
+			'moveend': this._updatePath
+		}, this);
 	},
 });
 
@@ -80,6 +143,7 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 				tileId = info.tile._tileId,
 				tileContainer = this._tileContainers[tileId];
 
+/*
 			// TODO: fade out
 			try {
 				if(tileContainer && tileContainer.parentNode && tileContainer.parentNode.removeChild)
@@ -88,6 +152,7 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 			catch(e) {
 				// nop
 			}
+*/
 		});
 	},
 
