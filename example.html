@@ -4,7 +4,10 @@
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 		<title>Leaflet GeoJson Layer</title>
-		
+
+		<link rel="stylesheet" href="//libs.personalwerk.de/leaflet/0.4.4/dist/leaflet.css" />
+		<!--[if lte IE 8]><link rel="stylesheet" href="//libs.personalwerk.de/leaflet/0.4.4/dist/leaflet.ie.css" /><![endif]-->
+
 		<style type="text/css">
 			#themap {
 				width: 800px;
@@ -29,8 +32,8 @@
 		<div id="themap"></div>
 		<script type="text/javascript">
 			var map = L.map('themap', {
-				center: [0, 0],
-				zoom: 0
+				center: [50.92, 10.65],
+				zoom: 3
 			});
 
 			map.addControl(L.permalink());
