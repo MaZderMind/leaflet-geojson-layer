@@ -107,13 +107,8 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 	},
 
 	statics: {
-		_createElement: function (name) {
-			if(L.Path.SVG) {
-				return document.createElementNS(L.Path.SVG_NS, name);
-			}
-			else {
-				// TODO: VML
-			}
+		_createSvgElement: function (name) {
+			return document.createElementNS(L.Path.SVG_NS, name);
 		}
 	},
 
@@ -216,16 +211,16 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 					defs = defs[0];
 				}
 				else {
-					defs = L.GeoJsonTileLayer._createElement('defs');
+					defs = L.GeoJsonTileLayer._createSvgElement('defs');
 					pathRoot.appendChild(defs);
 				}
 			}
 
-			clipPath = L.GeoJsonTileLayer._createElement('clipPath');
+			clipPath = L.GeoJsonTileLayer._createSvgElement('clipPath');
 			clipPath.setAttribute('id', cpId);
 			defs.appendChild(clipPath);
 			
-			clipRect = L.GeoJsonTileLayer._createElement('rect');
+			clipRect = L.GeoJsonTileLayer._createSvgElement('rect');
 			clipPath.appendChild(clipRect);
 			this._clipRects[cpId] = clipRect;
 		}
