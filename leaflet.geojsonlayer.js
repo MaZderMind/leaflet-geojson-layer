@@ -14,9 +14,6 @@ L.Path.include({
 				tileContainer = this._createElement('g');
 				this._tileContainers[tileId] = tileContainer;
 
-				//tileContainer.setAttribute('data-tile-x', tilePoint.x);
-				//tileContainer.setAttribute('data-tile-y', tilePoint.y);
-				//tileContainer.setAttribute('data-tile-zoom', map._zoom);
 				tileContainer.setAttribute('clip-path', 'url(#'+cpId+')');
 			}
 
@@ -28,16 +25,15 @@ L.Path.include({
 
 		this._path = this._createElement('path');
 		this._container.appendChild(this._path);
+		this._map._pathRoot.appendChild(this._container);
 
 	} : function() {
-
 		var container = this._container = this._createElement('shape');
 		L.DomUtil.addClass(container, 'leaflet-vml-shape');
 		if (this.options.clickable) {
 			L.DomUtil.addClass(container, 'leaflet-clickable');
 		}
 		container.coordsize = '1 1';
-		//container.setAttribute('style', 'position: relative;');
 
 		this._path = this._createElement('path');
 		container.appendChild(this._path);
@@ -50,31 +46,17 @@ L.Path.include({
 
 			if(!tileContainer) {
 				tileContainer = document.createElement('div');
-				this._tileContainers[tileId] = tileContainer;
-
-				tileContainer.setAttribute('data-tile-x', tilePoint.x);
-				tileContainer.setAttribute('data-tile-y', tilePoint.y);
-				tileContainer.setAttribute('data-tile-zoom', map._zoom);
-				//tileContainer.setAttribute('clip-path', 'url(#'+cpId+')');
-
-
-				// get clip-px for tile point
-				var nwPoint = tilePoint.multiplyBy(256),
-					sePoint = nwPoint.add(new L.Point(256, 256)),
-
-					nw = map.unproject(nwPoint),
-					se = map.unproject(sePoint),
-					tl = map.latLngToContainerPoint(nw),
-					br = map.latLngToContainerPoint(se);
-
-				//tileContainer.coordsize = '1,1';
 				tileContainer.style.position = 'absolute';
-
-				tileContainer.style.clip = 'rect('+tl.y+'px '+br.x+'px '+br.y+'px '+tl.x+'px)';
+				this._tileContainers[tileId] = tileContainer;
 
 				this._map._pathRoot.appendChild(tileContainer);
 			}
 
+			if(this._clipRects[tileId]) {
+				console.log('using preset cliprect');
+				tileContainer.style.clip = this._clipRects[tileId];
+				delete this._clipRects[tileId];
+			}
 			tileContainer.appendChild(container);
 		}
 		else {
@@ -112,7 +94,7 @@ L.Path.include({
 L.GeoJsonTileLayer = L.TileLayer.extend({
 	includes: {
 		_tileContainers: {},
-		_svgClipRects: {}
+		_clipRects: {}
 	},
 
 	options: {
@@ -143,7 +125,6 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 				tileId = info.tile._tileId,
 				tileContainer = this._tileContainers[tileId];
 
-/*
 			// TODO: fade out
 			try {
 				if(tileContainer && tileContainer.parentNode && tileContainer.parentNode.removeChild)
@@ -152,7 +133,14 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 			catch(e) {
 				// nop
 			}
-*/
+
+			// TODO: fade out
+			try {
+				delete this._tileContainers[tileId];
+			}
+			catch(e) {
+				// nop
+			}
 		});
 	},
 
@@ -211,56 +199,76 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 		this._updateClipPath(tilePoint);
 	},
 
-	_updateClipPath: function(tilePoint) {
-		if(L.Path.SVG) {
-			var map = this._map,
-				tileSize = this.options.tileSize,
-				cpId = 'cp-'+map._zoom+'-'+tilePoint.x+'-'+tilePoint.y,
-				pathRoot = map._pathRoot,
-				clipRect = this._svgClipRects[cpId];
+	_updateClipPath: L.Path.SVG ? function(tilePoint) {
+		var map = this._map,
+			tileSize = this.options.tileSize,
+			cpId = 'cp-'+map._zoom+'-'+tilePoint.x+'-'+tilePoint.y,
+			pathRoot = map._pathRoot,
+			clipRect = this._clipRects[cpId];
 
-			if(!clipRect) {
-				var defs = this._svgDefsSection;
+		if(!clipRect) {
+			var defs = this._svgDefsSection;
 
-				// find/create defs section
-				if(!defs) {
-					defs = pathRoot.getElementsByTagName('defs');
-					if(defs.length > 0) {
-						defs = defs[0];
-					}
-					else {
-						defs = L.GeoJsonTileLayer._createElement('defs');
-						pathRoot.appendChild(defs);
-					}
+			// find/create defs section
+			if(!defs) {
+				defs = pathRoot.getElementsByTagName('defs');
+				if(defs.length > 0) {
+					defs = defs[0];
 				}
-
-				clipPath = L.GeoJsonTileLayer._createElement('clipPath');
-				clipPath.setAttribute('id', cpId);
-				defs.appendChild(clipPath);
-				
-				clipRect = L.GeoJsonTileLayer._createElement('rect');
-				clipPath.appendChild(clipRect);
-				this._svgClipRects[cpId] = clipRect;
+				else {
+					defs = L.GeoJsonTileLayer._createElement('defs');
+					pathRoot.appendChild(defs);
+				}
 			}
 
-			// get clip-px for tile point
-			var crs = map.options.crs,
-				nwPoint = tilePoint.multiplyBy(tileSize),
-				sePoint = nwPoint.add(new L.Point(tileSize, tileSize)),
-
-				nw = map.unproject(nwPoint),
-				se = map.unproject(sePoint),
-				tl = map.latLngToLayerPoint(nw),
-				br = map.latLngToLayerPoint(se);
-
-			var overlap = 0.5;
-			clipRect.setAttribute('x', tl.x - overlap);
-			clipRect.setAttribute('y', tl.y - overlap);
-			clipRect.setAttribute('width', br.x - tl.x + overlap+overlap);
-			clipRect.setAttribute('height', br.y - tl.y + overlap+overlap);
+			clipPath = L.GeoJsonTileLayer._createElement('clipPath');
+			clipPath.setAttribute('id', cpId);
+			defs.appendChild(clipPath);
+			
+			clipRect = L.GeoJsonTileLayer._createElement('rect');
+			clipPath.appendChild(clipRect);
+			this._clipRects[cpId] = clipRect;
 		}
-		else {
-			// TODO: VML
+
+		// get clip-px for tile point
+		var crs = map.options.crs,
+			nwPoint = tilePoint.multiplyBy(tileSize),
+			sePoint = nwPoint.add(new L.Point(tileSize, tileSize)),
+
+			nw = map.unproject(nwPoint),
+			se = map.unproject(sePoint),
+			tl = map.latLngToLayerPoint(nw),
+			br = map.latLngToLayerPoint(se);
+
+		var overlap = 0.5;
+		clipRect.setAttribute('x', tl.x - overlap);
+		clipRect.setAttribute('y', tl.y - overlap);
+		clipRect.setAttribute('width', br.x - tl.x + overlap+overlap);
+		clipRect.setAttribute('height', br.y - tl.y + overlap+overlap);
+	} : function(tilePoint) {
+		var map = this._map,
+			tileSize = this.options.tileSize,
+			tileId = map._zoom+'/'+tilePoint.x+'/'+tilePoint.y,
+			tileContainer = this._tileContainers[tileId],
+			crs = map.options.crs,
+			nwPoint = tilePoint.multiplyBy(tileSize),
+			sePoint = nwPoint.add(new L.Point(tileSize, tileSize)),
+
+			nw = map.unproject(nwPoint),
+			se = map.unproject(sePoint),
+			tl = map.latLngToLayerPoint(nw),
+			br = map.latLngToLayerPoint(se);
+
+		var
+			overlap = 0,
+			clipRect = 'rect('+(tl.y-overlap)+'px '+(br.x+overlap)+'px '+(br.y+overlap+overlap)+'px '+(tl.x-overlap)+'px)';
+
+		if(tileContainer) {
+			console.log('updating cliprect');
+			tileContainer.style.clip = clipRect;
+		} else {
+			console.log('presetting cliprect');
+			this._clipRects[tileId] = clipRect;
 		}
 	},
 
@@ -268,6 +276,7 @@ L.GeoJsonTileLayer = L.TileLayer.extend({
 		if(!vectorLayer._layers) {
 			vectorLayer._tilePoint = tilePoint;
 			vectorLayer._tileContainers = this._tileContainers;
+			vectorLayer._clipRects = this._clipRects;
 			return;
 		};
 
